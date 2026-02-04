@@ -6,105 +6,111 @@
     <title>HR Capability & Metrics Catalogue</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
     <style>
-        body { font-family: 'Noto Sans', sans-serif; background-color: #f4f6f8; height: 100vh; overflow: hidden; }
+        body { font-family: 'Noto Sans', sans-serif; background-color: #f8fafc; height: 100vh; overflow: hidden; }
         h1, h2, h3 { font-family: 'Lato', sans-serif; }
         
-        /* Tree Styling */
-        .tree-content { transition: all 0.15s ease; border-left: 3px solid transparent; }
-        .tree-content:hover { background-color: #eef2f6; }
-        .tree-selected .tree-content { background-color: #e0e7ff; border-left-color: #2563eb; font-weight: 600; color: #1e3a8a; }
-        .tree-children { display: none; margin-left: 14px; border-left: 1px solid #e5e7eb; }
+        /* Tree View Styling */
+        .tree-content { transition: all 0.1s ease; border-left: 3px solid transparent; }
+        .tree-content:hover { background-color: #f1f5f9; }
+        .tree-selected .tree-content { background-color: #e0e7ff; border-left-color: #2563eb; color: #1e3a8a; font-weight: 600; }
+        .tree-children { display: none; margin-left: 12px; border-left: 1px solid #e2e8f0; }
         .tree-children.expanded { display: block; }
         
-        /* Status Tags */
+        /* Tags */
+        .tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em; }
         .tag-draft { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
         .tag-live { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
         
         /* Custom Scrollbar */
-        .scroller::-webkit-scrollbar { width: 6px; }
+        .scroller::-webkit-scrollbar { width: 8px; }
         .scroller::-webkit-scrollbar-track { background: transparent; }
-        .scroller::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+        .scroller::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
     </style>
 </head>
 <body class="flex flex-col h-full text-slate-800">
 
-    <header class="bg-slate-900 text-white p-3 shadow-lg shrink-0 flex justify-between items-center z-20">
+    <header class="bg-slate-900 text-white p-3 shadow-md shrink-0 flex justify-between items-center z-20">
         <div class="flex items-center gap-3">
-            <div class="bg-white p-1 rounded">
+            <div class="bg-white p-1 rounded-sm">
                 <svg viewBox="0 0 30 15" class="h-4 w-8"><rect width="30" height="15" fill="#f00"/><rect x="7.5" width="15" height="15" fill="#fff"/></svg>
             </div>
             <div>
-                <h1 class="font-bold text-lg tracking-wide">HR Capability Catalogue</h1>
-                <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Official Metrics & Benefits Reference</p>
+                <h1 class="font-bold text-lg leading-tight">HR Capability Catalogue</h1>
+                <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Official Reference</p>
             </div>
         </div>
-        <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition flex items-center gap-2">
-            <span>Download Current View</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
-        </button>
+        <div class="flex gap-2">
+            <button onclick="window.print()" class="bg-slate-700 hover:bg-slate-600 text-white text-xs font-bold py-2 px-3 rounded transition">
+                Print / PDF
+            </button>
+            <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                Export CSV
+            </button>
+        </div>
     </header>
 
     <div class="flex flex-1 overflow-hidden">
         
-        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-xl z-10">
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-xl z-10 print:hidden">
             <div class="p-3 border-b border-slate-100 bg-slate-50">
                 <input type="text" id="searchInput" placeholder="Search capabilities..." 
-                       class="w-full text-sm border border-slate-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition shadow-sm">
+                       class="w-full text-sm border border-slate-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition shadow-sm placeholder-slate-400">
             </div>
-            <div id="treeContainer" class="flex-1 overflow-y-auto p-2 scroller text-sm">
-                <div class="text-center mt-10 text-slate-400 animate-pulse">Loading dataset...</div>
+            <div id="treeContainer" class="flex-1 overflow-y-auto p-2 scroller text-sm pb-10">
+                <div class="text-center mt-10 text-slate-400 animate-pulse">Loading CSV data...</div>
             </div>
         </aside>
 
-        <main class="flex-1 overflow-y-auto bg-slate-50/50 p-6 scroller relative" id="mainArea">
+        <main class="flex-1 overflow-y-auto bg-slate-50/50 p-8 scroller relative print:p-0 print:overflow-visible" id="mainArea">
             
-            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50 print:hidden">
                 <svg class="w-16 h-16 mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>
-                <p class="font-medium">Select a capability to view metrics.</p>
+                <p class="font-medium">Select a capability from the menu to view details.</p>
             </div>
 
-            <div id="detailView" class="hidden max-w-5xl mx-auto pb-20">
+            <div id="detailView" class="hidden max-w-5xl mx-auto pb-20 print:block print:w-full">
                 
-                <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6 print:border-none print:shadow-none print:p-0">
                     <div class="flex items-start justify-between">
                         <div>
-                            <span id="detLevel" class="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Level X</span>
-                            <h2 id="detName" class="text-2xl font-bold text-slate-900 mt-2 mb-1">Capability Name</h2>
+                            <span id="detLevel" class="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide border border-blue-100">Level X</span>
+                            <h2 id="detName" class="text-2xl font-bold text-slate-900 mt-3 mb-1">Capability Name</h2>
                             <code id="detId" class="text-sm text-slate-400 font-mono">ID: 8.3.X</code>
                         </div>
                     </div>
-                    <p id="detDesc" class="mt-4 text-slate-600 leading-relaxed border-t border-slate-100 pt-4"></p>
+                    <p id="detDesc" class="mt-4 text-slate-700 leading-relaxed text-lg"></p>
                 </div>
 
-                <div id="childSection" class="mb-8 hidden">
-                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                <div id="childSection" class="mb-8 hidden print:hidden">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
                         <span>Sub-Capabilities</span>
                         <span class="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]" id="childCount">0</span>
                     </h3>
                     <div id="childGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
                 </div>
 
-                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-slate-50 px-6 py-3 border-b border-slate-200 flex justify-between items-center">
-                        <h3 class="font-bold text-slate-700">Performance Metrics</h3>
-                        <div class="text-xs text-slate-500 space-x-3">
-                            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Live</span>
-                            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span> Draft</span>
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden print:border print:shadow-none">
+                    <div class="bg-slate-50 px-6 py-3 border-b border-slate-200 flex justify-between items-center print:bg-white">
+                        <h3 class="font-bold text-slate-700">Metrics & Benefits</h3>
+                        <div class="text-xs text-slate-500 space-x-2 print:hidden">
+                            <span class="tag tag-live">Live Metric</span>
+                            <span class="tag tag-draft">Draft Metric</span>
                         </div>
                     </div>
                     
                     <div class="overflow-x-auto">
                         <table class="w-full text-left text-sm border-collapse">
                             <thead>
-                                <tr class="bg-slate-100 text-slate-500 uppercase text-xs">
+                                <tr class="bg-slate-100 text-slate-500 uppercase text-xs print:bg-slate-100">
                                     <th class="p-4 font-bold border-b border-slate-200 w-1/4">Benefit Statement</th>
-                                    <th class="p-4 font-bold border-b border-slate-200 w-1/5">Metric</th>
+                                    <th class="p-4 font-bold border-b border-slate-200 w-1/5">Metric ID/Name</th>
                                     <th class="p-4 font-bold border-b border-slate-200 w-1/3">Formula & Definition</th>
-                                    <th class="p-4 font-bold border-b border-slate-200 w-1/6">Status</th>
+                                    <th class="p-4 font-bold border-b border-slate-200 w-1/6">Status & Target</th>
                                 </tr>
                             </thead>
                             <tbody id="metricTableBody" class="divide-y divide-slate-100"></tbody>
@@ -117,69 +123,87 @@
     </div>
 
     <script>
-        const store = { tree: [], caps: {}, benefits: [], metrics: {} };
+        // Global Store
+        const app = { tree: [], caps: {}, metrics: {} };
         
+        // 1. Initialize & Fetch
         async function init() {
-            // 1. Fetch Data
-            const [capsData, benData, metData] = await Promise.all([
-                fetchCsv('data/capabilities.csv'),
-                fetchCsv('data/benefits.csv'),
-                fetchCsv('data/metrics.csv')
-            ]);
+            try {
+                // Fetch all 3 CSVs in parallel
+                const [capsData, benData, metData] = await Promise.all([
+                    fetchCsv('data/capabilities.csv'),
+                    fetchCsv('data/benefits.csv'),
+                    fetchCsv('data/metrics.csv')
+                ]);
 
-            // 2. Index Metrics (Handle * in headers if present)
-            metData.forEach(m => {
-                const id = m.MetricID || m['MetricID*'];
-                if(id) store.metrics[id] = m;
-            });
+                // 2. Index Metrics (Cleanup * in headers)
+                metData.forEach(m => {
+                    // Try to find ID in common variations
+                    const id = m.MetricID || m['MetricID*'] || m['MetricID '];
+                    const name = m.MetricName || m['MetricName*'];
+                    const def = m.Definition;
+                    const form = m.CalcFormula || m.CalcMethod; // Fallback
+                    
+                    if(id) {
+                        app.metrics[id] = { ...m, cleanId: id, cleanName: name, cleanDef: def, cleanForm: form };
+                    }
+                });
 
-            // 3. Process Capabilities (Filter duplicates & Sort)
-            const cleanCaps = capsData
-                .filter(c => c.CapabilityID !== '0') // Remove duplicate root
-                .sort((a,b) => a.CapabilityID.localeCompare(b.CapabilityID, undefined, { numeric: true }));
+                // 3. Process Capabilities
+                const cleanCaps = capsData
+                    .filter(c => c.CapabilityID && c.CapabilityID !== '0') // Remove '0' duplicate
+                    .sort((a,b) => a.CapabilityID.localeCompare(b.CapabilityID, undefined, { numeric: true }));
 
-            // 4. Build Tree
-            const rootNodes = [];
-            cleanCaps.forEach(c => {
-                c.children = [];
-                c.benefits = benData.filter(b => b.CapabilityID === c.CapabilityID);
-                store.caps[c.CapabilityID] = c;
+                const rootNodes = [];
+                
+                cleanCaps.forEach(c => {
+                    c.children = [];
+                    // Find benefits for this cap
+                    c.benefits = benData.filter(b => b.CapabilityID === c.CapabilityID);
+                    app.caps[c.CapabilityID] = c;
 
-                // Parent Logic
-                const parts = c.CapabilityID.split('.');
-                if(parts.length > 1) { // Assuming 8.3 is root base
-                    parts.pop();
-                    const pId = parts.join('.');
-                    if(store.caps[pId]) {
-                        store.caps[pId].children.push(c);
+                    // Build Tree (Parent/Child)
+                    const parts = c.CapabilityID.split('.');
+                    // Adjust this logic based on your root. Assuming 8.3.X are roots.
+                    if(parts.length > 3) { 
+                        parts.pop();
+                        const pId = parts.join('.');
+                        if(app.caps[pId]) {
+                            app.caps[pId].children.push(c);
+                        } else {
+                            rootNodes.push(c);
+                        }
                     } else {
                         rootNodes.push(c);
                     }
-                } else {
-                    rootNodes.push(c);
-                }
-            });
+                });
 
-            store.tree = rootNodes;
-            renderTree(store.tree);
-            
-            // Search Listener
-            document.getElementById('searchInput').addEventListener('input', (e) => filterTree(e.target.value));
+                app.tree = rootNodes;
+                renderTree(app.tree);
+
+                // Setup Search
+                document.getElementById('searchInput').addEventListener('input', (e) => filterTree(e.target.value));
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('treeContainer').innerHTML = 
+                    `<div class="p-4 text-red-600 text-center">Error loading files.<br>Ensure "data/" folder exists with CSVs.</div>`;
+            }
         }
 
-        // --- Helpers ---
         function fetchCsv(path) {
-            return new Promise(resolve => {
+            return new Promise((resolve, reject) => {
                 Papa.parse(path, {
                     download: true,
                     header: true,
                     skipEmptyLines: true,
-                    complete: res => resolve(res.data)
+                    complete: (res) => resolve(res.data),
+                    error: (err) => reject(err)
                 });
             });
         }
 
-        // --- Rendering ---
+        // 2. Rendering
         function renderTree(nodes, container = document.getElementById('treeContainer')) {
             container.innerHTML = '';
             nodes.forEach(node => container.appendChild(createNodeEl(node)));
@@ -190,9 +214,6 @@
             const hasKids = node.children && node.children.length > 0;
             const benefitCount = node.benefits.length;
             
-            // Highlight Logic
-            const isActive = false; 
-
             el.innerHTML = `
                 <div class="tree-node" id="node-${node.CapabilityID}">
                     <div class="tree-content cursor-pointer p-1.5 rounded flex items-center justify-between group" 
@@ -213,7 +234,6 @@
                 </div>
             `;
 
-            // Render children immediately (hidden via CSS)
             if(hasKids) {
                 const childContainer = el.querySelector('.tree-children');
                 node.children.forEach(child => childContainer.appendChild(createNodeEl(child)));
@@ -232,34 +252,31 @@
         }
 
         function selectNode(id) {
-            // UI Highlight
+            // UI Update
             document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('tree-selected'));
             document.getElementById(`node-${id}`).classList.add('tree-selected');
 
-            const cap = store.caps[id];
-            if(!cap) return;
-
-            // Show Content
+            const cap = app.caps[id];
+            
             document.getElementById('emptyState').classList.add('hidden');
             document.getElementById('detailView').classList.remove('hidden');
 
-            // Fill Header
             document.getElementById('detName').innerText = cap.CapabilityName;
             document.getElementById('detId').innerText = `ID: ${cap.CapabilityID}`;
             document.getElementById('detLevel').innerText = cap.Level;
             document.getElementById('detDesc').innerText = cap.Description || "No description provided.";
 
-            // Fill Sub-Capabilities
+            // Sub-Caps Grid
+            const grid = document.getElementById('childGrid');
+            grid.innerHTML = '';
             const childSec = document.getElementById('childSection');
-            const childGrid = document.getElementById('childGrid');
-            childGrid.innerHTML = '';
             
             if(cap.children.length > 0) {
                 childSec.classList.remove('hidden');
                 document.getElementById('childCount').innerText = cap.children.length;
                 cap.children.forEach(c => {
                     const card = document.createElement('div');
-                    card.className = "bg-white border border-slate-200 p-3 rounded hover:border-blue-400 cursor-pointer transition shadow-sm group";
+                    card.className = "bg-white border border-slate-200 p-3 rounded hover:border-blue-400 cursor-pointer shadow-sm group";
                     card.onclick = () => { selectNode(c.CapabilityID); document.getElementById(`node-${c.CapabilityID}`).scrollIntoView(); };
                     card.innerHTML = `
                         <div class="flex justify-between items-center mb-1">
@@ -268,74 +285,76 @@
                         </div>
                         <div class="font-bold text-sm text-slate-700 group-hover:text-blue-700 truncate">${c.CapabilityName}</div>
                     `;
-                    childGrid.appendChild(card);
+                    grid.appendChild(card);
                 });
             } else {
                 childSec.classList.add('hidden');
             }
 
-            // Fill Metrics
+            // Metrics Table
             const tbody = document.getElementById('metricTableBody');
             tbody.innerHTML = '';
 
             if(cap.benefits.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-400 italic">
-                    No direct metrics mapped to this level.<br>
-                    <span class="text-xs">Check sub-capabilities or parent levels.</span>
+                    <div class="mb-2">No direct metrics mapped to this level.</div>
+                    <div class="text-xs bg-slate-100 inline-block px-2 py-1 rounded">Gap Analysis: Check sub-capabilities or parent level.</div>
                 </td></tr>`;
             } else {
                 cap.benefits.forEach(b => {
-                    const m = store.metrics[b.LinkedMetricID] || {};
-                    const mName = m.MetricName || m['MetricName*'] || "Unknown";
-                    const def = m.Definition || "-";
-                    const formula = m.CalcFormula || "-";
+                    const m = app.metrics[b.LinkedMetricID] || {cleanName: "Unknown", cleanForm: "-", cleanDef: "-"};
                     
-                    // Logic: Is it a Draft metric? (Contains 'Count(' or is empty)
-                    const isDraft = formula.includes("Count(") || formula === "-" || formula.includes("Total rate");
+                    // "Draft" Logic: Check for 'Count(' placeholder or missing formula
+                    const formula = m.cleanForm || "-";
+                    const isDraft = formula.includes("Count(") || formula === "-";
+                    
                     const statusBadge = isDraft 
-                        ? `<span class="tag-draft text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">Draft</span>`
-                        : `<span class="tag-live text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">Live</span>`;
+                        ? `<span class="tag tag-draft">Draft</span>` 
+                        : `<span class="tag tag-live">Live</span>`;
+
+                    const targetDisplay = b.TargetValue ? `Target: <strong>${b.TargetValue}</strong>` : 'Target: TBD';
+                    const baseDisplay = b.BaselineValue ? `Base: ${b.BaselineValue}` : 'Base: -';
 
                     tbody.innerHTML += `
-                        <tr class="hover:bg-slate-50 transition">
-                            <td class="p-4 text-slate-700 align-top">${b.BenefitStatement}</td>
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-50 last:border-0">
+                            <td class="p-4 text-slate-700 align-top leading-relaxed">${b.BenefitStatement}</td>
                             <td class="p-4 align-top">
-                                <div class="font-bold text-slate-800 text-sm mb-1">${mName}</div>
-                                <div class="font-mono text-xs text-blue-600 bg-blue-50 inline-block px-1 rounded border border-blue-100">${b.LinkedMetricID}</div>
+                                <div class="font-bold text-slate-800 text-sm">${m.cleanName}</div>
+                                <div class="font-mono text-xs text-blue-600 bg-blue-50 inline-block px-1 rounded mt-1 border border-blue-100">${b.LinkedMetricID}</div>
                             </td>
                             <td class="p-4 align-top">
                                 <div class="mb-2">
-                                    <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Formula:</span>
+                                    <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Formula</span>
                                     <div class="font-mono text-xs bg-slate-100 p-1.5 rounded text-slate-600 border border-slate-200 mt-1 break-words">${formula}</div>
                                 </div>
                                 <div>
-                                    <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Definition:</span>
-                                    <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${def}</div>
+                                    <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Definition</span>
+                                    <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${m.cleanDef}</div>
                                 </div>
                             </td>
-                            <td class="p-4 align-top">${statusBadge}</td>
+                            <td class="p-4 align-top">
+                                <div class="mb-2">${statusBadge}</div>
+                                <div class="text-xs text-slate-500 space-y-0.5">
+                                    <div>${targetDisplay}</div>
+                                    <div class="text-slate-400">${baseDisplay}</div>
+                                </div>
+                            </td>
                         </tr>
                     `;
                 });
             }
         }
 
-        // --- Search Logic ---
+        // 3. Search
         function filterTree(term) {
             const lower = term.toLowerCase();
-            const nodes = document.querySelectorAll('.tree-node');
-            
-            nodes.forEach(node => {
-                // Determine if this node or any child matches
-                const content = node.innerText.toLowerCase();
-                if(content.includes(lower)) {
+            document.querySelectorAll('.tree-node').forEach(node => {
+                const text = node.innerText.toLowerCase();
+                if(text.includes(lower)) {
                     node.style.display = 'block';
-                    // Auto expand if filter is active
                     if(term.length > 0) {
-                        const childDiv = node.querySelector('.tree-children');
-                        if(childDiv) childDiv.classList.add('expanded');
-                        const toggle = node.querySelector('.toggle-icon');
-                        if(toggle) toggle.innerText = '▼';
+                        const child = node.querySelector('.tree-children');
+                        if(child) child.classList.add('expanded');
                     }
                 } else {
                     node.style.display = 'none';
@@ -343,30 +362,38 @@
             });
         }
 
-        // --- Export ---
+        // 4. Export
         function exportToCSV() {
             const name = document.getElementById('detName').innerText;
             const rows = document.querySelectorAll('#metricTableBody tr');
             if(!rows.length || rows[0].innerText.includes("No direct metrics")) return alert("No metrics to export.");
 
-            let csv = [`"Benefit","Metric","ID","Formula","Status"`];
+            let csv = [`"Benefit","Metric Name","ID","Formula","Definition","Target","Status"`];
             rows.forEach(r => {
                 const cols = r.querySelectorAll('td');
                 const ben = cols[0].innerText.replace(/"/g, '""');
-                const met = cols[1].querySelector('.font-bold').innerText.replace(/"/g, '""');
-                const id = cols[1].querySelector('.font-mono').innerText;
+                
+                const metName = cols[1].querySelector('.font-bold').innerText.replace(/"/g, '""');
+                const metId = cols[1].querySelector('.font-mono').innerText;
+                
                 const form = cols[2].querySelector('.font-mono').innerText.replace(/"/g, '""');
-                const status = cols[3].innerText;
-                csv.push(`"${ben}","${met}","${id}","${form}","${status}"`);
+                const def = cols[2].querySelectorAll('div')[2].innerText.replace(/"/g, '""'); // Definition div
+                
+                const status = cols[3].querySelector('.tag').innerText;
+                const target = cols[3].querySelectorAll('div')[2].innerText.replace(/"/g, '""');
+
+                csv.push(`"${ben}","${metName}","${metId}","${form}","${def}","${target}","${status}"`);
             });
 
             const blob = new Blob([csv.join('\n')], {type:'text/csv'});
+            const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `Metrics_${name}.csv`;
+            a.href = url;
+            a.download = `Metrics_Report_${name.replace(/ /g,'_')}.csv`;
             a.click();
         }
 
+        // Start App
         init();
     </script>
 </body>
