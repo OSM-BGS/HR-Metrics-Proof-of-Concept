@@ -24,9 +24,16 @@ layout: default
   .toggle-label::before { content: "▶"; display: inline-block; width: 15px; margin-right: 8px; font-size: 0.8em; color: #586069; }
 
   /* Data Tables */
-  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.9em; background: white; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.85em; background: white; }
   th { background: #f6f8fa; color: #24292e; padding: 10px; text-align: left; border-bottom: 2px solid #e1e4e8; }
   td { border-bottom: 1px solid #e1e4e8; padding: 10px; vertical-align: top; }
+  
+  /* Column Widths */
+  .col-benefit { width: 30%; }
+  .col-metric { width: 20%; }
+  .col-formula { width: 25%; font-family: Consolas, Monaco, "Courier New", monospace; color: #d63384; background: #fafafa; }
+  .col-def { width: 25%; }
+
   .badge { background: #0366d6; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; margin-left: 8px; }
   .badge-l5 { background: #28a745; }
   .badge-l6 { background: #6f42c1; }
@@ -63,13 +70,19 @@ layout: default
                 {% assign l4_metrics = site.data.benefits | where: "CapabilityID", l4.CapabilityID %}
                 {% if l4_metrics.size > 0 %}
                   <table>
-                    <tr><th width="30%">Benefit</th><th width="20%">Metric</th><th>Definition</th></tr>
+                    <tr>
+                        <th class="col-benefit">Benefit</th>
+                        <th class="col-metric">Metric</th>
+                        <th class="col-formula">Calculation Formula</th>
+                        <th class="col-def">Definition</th>
+                    </tr>
                     {% for ben in l4_metrics %}
                       {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
                       <tr>
                         <td>{{ ben.BenefitStatement }}</td>
                         <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
-                        <td>{{ m.Definition | default: "Definition not found (Check MetricID)" }}</td>
+                        <td class="col-formula">{{ m.CalcFormula | default: "N/A" }}</td>
+                        <td>{{ m.Definition | default: "Definition not found" }}</td>
                       </tr>
                     {% endfor %}
                   </table>
@@ -91,12 +104,18 @@ layout: default
                         {% assign l5_metrics = site.data.benefits | where: "CapabilityID", l5.CapabilityID %}
                         {% if l5_metrics.size > 0 %}
                           <table>
-                            <tr><th width="30%">Benefit</th><th width="20%">Metric</th><th>Definition</th></tr>
+                            <tr>
+                                <th class="col-benefit">Benefit</th>
+                                <th class="col-metric">Metric</th>
+                                <th class="col-formula">Calculation Formula</th>
+                                <th class="col-def">Definition</th>
+                            </tr>
                             {% for ben in l5_metrics %}
                               {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
                               <tr>
                                 <td>{{ ben.BenefitStatement }}</td>
                                 <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
+                                <td class="col-formula">{{ m.CalcFormula | default: "N/A" }}</td>
                                 <td>{{ m.Definition | default: "Definition not found" }}</td>
                               </tr>
                             {% endfor %}
@@ -119,12 +138,18 @@ layout: default
                                 {% assign l6_metrics = site.data.benefits | where: "CapabilityID", l6.CapabilityID %}
                                 {% if l6_metrics.size > 0 %}
                                   <table>
-                                    <tr><th width="30%">Benefit</th><th width="20%">Metric</th><th>Definition</th></tr>
+                                    <tr>
+                                        <th class="col-benefit">Benefit</th>
+                                        <th class="col-metric">Metric</th>
+                                        <th class="col-formula">Calculation Formula</th>
+                                        <th class="col-def">Definition</th>
+                                    </tr>
                                     {% for ben in l6_metrics %}
                                       {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
                                       <tr>
                                         <td>{{ ben.BenefitStatement }}</td>
                                         <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
+                                        <td class="col-formula">{{ m.CalcFormula | default: "N/A" }}</td>
                                         <td>{{ m.Definition | default: "Definition not found" }}</td>
                                       </tr>
                                     {% endfor %}
