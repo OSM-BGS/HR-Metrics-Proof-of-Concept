@@ -3,75 +3,74 @@ layout: default
 ---
 
 <style>
-  /* CSS-Only Accordion (No Scripts Required) */
-  .tree-node { margin-left: 20px; border-left: 1px solid #ddd; }
-  .toggle-box { display: none; } /* Hide the actual checkbox */
+  /* GoC-Style Minimalist CSS */
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #333; line-height: 1.6; }
+  
+  /* Tree Navigation */
+  .tree-node { margin-left: 20px; border-left: 2px solid #e1e4e8; padding-left: 10px; margin-top: 10px; }
+  .toggle-box { display: none; } 
   
   .toggle-label {
-    cursor: pointer;
-    display: block;
-    padding: 5px;
-    font-weight: bold;
-    color: #0056b3;
-    user-select: none;
+    cursor: pointer; display: flex; align-items: center; padding: 8px; 
+    font-weight: 600; color: #0056b3; border-radius: 4px;
+    background-color: #f6f8fa; border: 1px solid #e1e4e8;
   }
+  .toggle-label:hover { background-color: #e1e4e8; }
   
-  .toggle-label:hover { background-color: #f0f0f0; }
-  
-  /* The Magic: When checkbox is checked, show the sibling content */
+  /* Toggle Logic */
   .toggle-box:checked ~ .content { display: block; }
-  .content { display: none; margin-left: 10px; }
+  .content { display: none; margin-top: 10px; }
+  .toggle-box:checked + .toggle-label::before { content: "▼"; margin-right: 8px; }
+  .toggle-label::before { content: "▶"; display: inline-block; width: 15px; margin-right: 8px; font-size: 0.8em; color: #586069; }
 
-  /* Table Styling */
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
-  th { background: #333; color: white; padding: 8px; text-align: left; }
-  td { border: 1px solid #ddd; padding: 8px; }
-  .badge { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; color: #333; }
+  /* Data Tables */
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.9em; background: white; }
+  th { background: #f6f8fa; color: #24292e; padding: 10px; text-align: left; border-bottom: 2px solid #e1e4e8; }
+  td { border-bottom: 1px solid #e1e4e8; padding: 10px; vertical-align: top; }
+  .badge { background: #0366d6; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; margin-left: 8px; }
+  .badge-l5 { background: #28a745; }
+  .badge-l6 { background: #6f42c1; }
+  .empty-msg { color: #666; font-style: italic; padding: 10px; }
 </style>
 
 <h1>HR Capability & Metrics Catalogue</h1>
-<p>Use <strong>Ctrl+F</strong> to search this page.</p>
+<p>Use <strong>Ctrl+F</strong> to find specific capabilities.</p>
 
 <div class="catalogue-container">
 
-  {% for cap in site.data.capabilities %}
-    {% if cap.Level == 'Level 3' %}
+  {% for l3 in site.data.capabilities %}
+    {% if l3.Level == 'Level 3' %}
       
-      <div class="level-3-wrapper" style="margin-bottom: 20px; background: white; padding: 15px; border-radius: 5px; border: 1px solid #ccc;">
-        <h2 style="margin-top:0;">{{ cap.CapabilityID }} - {{ cap.CapabilityName }}</h2>
-        <p><em>{{ cap.Description }}</em></p>
+      <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+        <h2 style="margin-top:0; border-bottom: 2px solid #0056b3; padding-bottom: 10px;">
+          {{ l3.CapabilityID }} - {{ l3.CapabilityName }}
+        </h2>
+        <p>{{ l3.Description }}</p>
 
         {% for l4 in site.data.capabilities %}
-          {% assign parent_check = l4.CapabilityID | split: '.' | pop | join: '.' %}
-          {% if parent_check == cap.CapabilityID %}
+          {% assign l4_parent = l4.CapabilityID | split: '.' | pop | join: '.' %}
+          {% if l4_parent == l3.CapabilityID %}
             
             <div class="tree-node">
               <input type="checkbox" id="toggle-{{ l4.CapabilityID }}" class="toggle-box">
               <label for="toggle-{{ l4.CapabilityID }}" class="toggle-label">
-                ▶ {{ l4.CapabilityID }} - {{ l4.CapabilityName }} 
-                <span class="badge">Level 4</span>
+                {{ l4.CapabilityID }} - {{ l4.CapabilityName }} <span class="badge">Level 4</span>
               </label>
               
               <div class="content">
-                <p style="margin: 5px 0 15px 0; color: #555;">{{ l4.Description }}</p>
-
-                {% assign has_metrics = false %}
-                {% for ben in site.data.benefits %}
-                  {% if ben.CapabilityID == l4.CapabilityID %}{% assign has_metrics = true %}{% endif %}
-                {% endfor %}
-
-                {% if has_metrics %}
+                <p><em>{{ l4.Description }}</em></p>
+                
+                {% assign l4_metrics = site.data.benefits | where: "CapabilityID", l4.CapabilityID %}
+                {% if l4_metrics.size > 0 %}
                   <table>
-                    <tr><th>Benefit</th><th>Metric</th><th>Definition</th></tr>
-                    {% for ben in site.data.benefits %}
-                      {% if ben.CapabilityID == l4.CapabilityID %}
-                        {% assign metric = site.data.metrics | where: "MetricID*", ben.LinkedMetricID | first %}
-                        <tr>
-                          <td>{{ ben.BenefitStatement }}</td>
-                          <td><strong>{{ metric["MetricName*"] }}</strong> ({{ ben.LinkedMetricID }})</td>
-                          <td>{{ metric.Definition }}</td>
-                        </tr>
-                      {% endif %}
+                    <tr><th width="30%">Benefit</th><th width="20%">Metric</th><th>Definition</th></tr>
+                    {% for ben in l4_metrics %}
+                      {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
+                      <tr>
+                        <td>{{ ben.BenefitStatement }}</td>
+                        <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
+                        <td>{{ m.Definition | default: "Definition not found (Check MetricID)" }}</td>
+                      </tr>
                     {% endfor %}
                   </table>
                 {% endif %}
@@ -83,35 +82,70 @@ layout: default
                     <div class="tree-node">
                       <input type="checkbox" id="toggle-{{ l5.CapabilityID }}" class="toggle-box">
                       <label for="toggle-{{ l5.CapabilityID }}" class="toggle-label">
-                        ▶ {{ l5.CapabilityID }} - {{ l5.CapabilityName }}
+                        {{ l5.CapabilityID }} - {{ l5.CapabilityName }} <span class="badge badge-l5">Level 5</span>
                       </label>
                       
                       <div class="content">
-                         <table>
-                            <tr><th>Benefit</th><th>Metric</th><th>Definition</th></tr>
-                            {% assign l5_has_metrics = false %}
-                            {% for ben in site.data.benefits %}
-                              {% if ben.CapabilityID == l5.CapabilityID %}
-                                {% assign l5_has_metrics = true %}
-                                {% assign metric = site.data.metrics | where: "MetricID*", ben.LinkedMetricID | first %}
-                                <tr>
-                                  <td>{{ ben.BenefitStatement }}</td>
-                                  <td><strong>{{ metric["MetricName*"] }}</strong> ({{ ben.LinkedMetricID }})</td>
-                                  <td>{{ metric.Definition }}</td>
-                                </tr>
-                              {% endif %}
+                        <p><em>{{ l5.Description }}</em></p>
+
+                        {% assign l5_metrics = site.data.benefits | where: "CapabilityID", l5.CapabilityID %}
+                        {% if l5_metrics.size > 0 %}
+                          <table>
+                            <tr><th width="30%">Benefit</th><th width="20%">Metric</th><th>Definition</th></tr>
+                            {% for ben in l5_metrics %}
+                              {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
+                              <tr>
+                                <td>{{ ben.BenefitStatement }}</td>
+                                <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
+                                <td>{{ m.Definition | default: "Definition not found" }}</td>
+                              </tr>
                             {% endfor %}
-                            {% if l5_has_metrics == false %}
-                              <tr><td colspan="3">No direct metrics.</td></tr>
-                            {% endif %}
-                         </table>
-                      </div>
+                          </table>
+                        {% endif %}
+
+                        {% for l6 in site.data.capabilities %}
+                          {% assign l6_parent = l6.CapabilityID | split: '.' | pop | join: '.' %}
+                          {% if l6_parent == l5.CapabilityID %}
+                            
+                            <div class="tree-node">
+                              <input type="checkbox" id="toggle-{{ l6.CapabilityID }}" class="toggle-box">
+                              <label for="toggle-{{ l6.CapabilityID }}" class="toggle-label">
+                                {{ l6.CapabilityID }} - {{ l6.CapabilityName }} <span class="badge badge-l6">Level 6</span>
+                              </label>
+                              
+                              <div class="content">
+                                <p><em>{{ l6.Description }}</em></p>
+                                
+                                {% assign l6_metrics = site.data.benefits | where: "CapabilityID", l6.CapabilityID %}
+                                {% if l6_metrics.size > 0 %}
+                                  <table>
+                                    <tr><th width="30%">Benefit</th><th width="20%">Metric</th><th>Definition</th></tr>
+                                    {% for ben in l6_metrics %}
+                                      {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
+                                      <tr>
+                                        <td>{{ ben.BenefitStatement }}</td>
+                                        <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
+                                        <td>{{ m.Definition | default: "Definition not found" }}</td>
+                                      </tr>
+                                    {% endfor %}
+                                  </table>
+                                {% else %}
+                                  <div class="empty-msg">No direct metrics mapped to this Level 6 capability.</div>
+                                {% endif %}
+                              </div>
+                            </div>
+
+                          {% endif %}
+                        {% endfor %}
+                        </div>
                     </div>
+
                   {% endif %}
                 {% endfor %}
                 </div>
             </div>
-            {% endif %}
+
+          {% endif %}
         {% endfor %}
         </div>
     {% endif %}
