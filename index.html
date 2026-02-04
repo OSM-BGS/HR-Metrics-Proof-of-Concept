@@ -1,178 +1,373 @@
----
-layout: default
----
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HR Capability & Metrics Catalogue</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;700&family=Lato:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
 
-<style>
-  /* GoC-Style Minimalist CSS */
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; color: #333; line-height: 1.6; }
-  
-  /* Tree Navigation */
-  .tree-node { margin-left: 20px; border-left: 2px solid #e1e4e8; padding-left: 10px; margin-top: 10px; }
-  .toggle-box { display: none; } 
-  
-  .toggle-label {
-    cursor: pointer; display: flex; align-items: center; padding: 8px; 
-    font-weight: 600; color: #0056b3; border-radius: 4px;
-    background-color: #f6f8fa; border: 1px solid #e1e4e8;
-  }
-  .toggle-label:hover { background-color: #e1e4e8; }
-  
-  /* Toggle Logic */
-  .toggle-box:checked ~ .content { display: block; }
-  .content { display: none; margin-top: 10px; }
-  .toggle-box:checked + .toggle-label::before { content: "▼"; margin-right: 8px; }
-  .toggle-label::before { content: "▶"; display: inline-block; width: 15px; margin-right: 8px; font-size: 0.8em; color: #586069; }
+    <style>
+        body { font-family: 'Noto Sans', sans-serif; background-color: #f4f6f8; height: 100vh; overflow: hidden; }
+        h1, h2, h3 { font-family: 'Lato', sans-serif; }
+        
+        /* Tree Styling */
+        .tree-content { transition: all 0.15s ease; border-left: 3px solid transparent; }
+        .tree-content:hover { background-color: #eef2f6; }
+        .tree-selected .tree-content { background-color: #e0e7ff; border-left-color: #2563eb; font-weight: 600; color: #1e3a8a; }
+        .tree-children { display: none; margin-left: 14px; border-left: 1px solid #e5e7eb; }
+        .tree-children.expanded { display: block; }
+        
+        /* Status Tags */
+        .tag-draft { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+        .tag-live { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        
+        /* Custom Scrollbar */
+        .scroller::-webkit-scrollbar { width: 6px; }
+        .scroller::-webkit-scrollbar-track { background: transparent; }
+        .scroller::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+    </style>
+</head>
+<body class="flex flex-col h-full text-slate-800">
 
-  /* Data Tables */
-  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.85em; background: white; }
-  th { background: #f6f8fa; color: #24292e; padding: 10px; text-align: left; border-bottom: 2px solid #e1e4e8; }
-  td { border-bottom: 1px solid #e1e4e8; padding: 10px; vertical-align: top; }
-  
-  /* Column Widths */
-  .col-benefit { width: 30%; }
-  .col-metric { width: 20%; }
-  .col-formula { width: 25%; font-family: Consolas, Monaco, "Courier New", monospace; color: #d63384; background: #fafafa; }
-  .col-def { width: 25%; }
+    <header class="bg-slate-900 text-white p-3 shadow-lg shrink-0 flex justify-between items-center z-20">
+        <div class="flex items-center gap-3">
+            <div class="bg-white p-1 rounded">
+                <svg viewBox="0 0 30 15" class="h-4 w-8"><rect width="30" height="15" fill="#f00"/><rect x="7.5" width="15" height="15" fill="#fff"/></svg>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wide">HR Capability Catalogue</h1>
+                <p class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Official Metrics & Benefits Reference</p>
+            </div>
+        </div>
+        <button onclick="exportToCSV()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded shadow transition flex items-center gap-2">
+            <span>Download Current View</span>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+        </button>
+    </header>
 
-  .badge { background: #0366d6; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75em; margin-left: 8px; }
-  .badge-l5 { background: #28a745; }
-  .badge-l6 { background: #6f42c1; }
-  .empty-msg { color: #666; font-style: italic; padding: 10px; }
-</style>
+    <div class="flex flex-1 overflow-hidden">
+        
+        <aside class="w-80 bg-white border-r border-slate-200 flex flex-col shadow-xl z-10">
+            <div class="p-3 border-b border-slate-100 bg-slate-50">
+                <input type="text" id="searchInput" placeholder="Search capabilities..." 
+                       class="w-full text-sm border border-slate-300 rounded px-3 py-2 focus:ring-2 focus:ring-blue-500 outline-none transition shadow-sm">
+            </div>
+            <div id="treeContainer" class="flex-1 overflow-y-auto p-2 scroller text-sm">
+                <div class="text-center mt-10 text-slate-400 animate-pulse">Loading dataset...</div>
+            </div>
+        </aside>
 
-<h1>HR Capability & Metrics Catalogue</h1>
-<p>Use <strong>Ctrl+F</strong> to find specific capabilities.</p>
-
-<div class="catalogue-container">
-
-  {% for l3 in site.data.capabilities %}
-    {% if l3.Level == 'Level 3' %}
-      
-      <div style="margin-bottom: 30px; background: white; padding: 20px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
-        <h2 style="margin-top:0; border-bottom: 2px solid #0056b3; padding-bottom: 10px;">
-          {{ l3.CapabilityID }} - {{ l3.CapabilityName }}
-        </h2>
-        <p>{{ l3.Description }}</p>
-
-        {% for l4 in site.data.capabilities %}
-          {% assign l4_parent = l4.CapabilityID | split: '.' | pop | join: '.' %}
-          {% if l4_parent == l3.CapabilityID %}
+        <main class="flex-1 overflow-y-auto bg-slate-50/50 p-6 scroller relative" id="mainArea">
             
-            <div class="tree-node">
-              <input type="checkbox" id="toggle-{{ l4.CapabilityID }}" class="toggle-box">
-              <label for="toggle-{{ l4.CapabilityID }}" class="toggle-label">
-                {{ l4.CapabilityID }} - {{ l4.CapabilityName }} <span class="badge">Level 4</span>
-              </label>
-              
-              <div class="content">
-                <p><em>{{ l4.Description }}</em></p>
-                
-                {% assign l4_metrics = site.data.benefits | where: "CapabilityID", l4.CapabilityID %}
-                {% if l4_metrics.size > 0 %}
-                  <table>
-                    <tr>
-                        <th class="col-benefit">Benefit</th>
-                        <th class="col-metric">Metric</th>
-                        <th class="col-formula">Calculation Formula</th>
-                        <th class="col-def">Definition</th>
-                    </tr>
-                    {% for ben in l4_metrics %}
-                      {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
-                      <tr>
-                        <td>{{ ben.BenefitStatement }}</td>
-                        <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
-                        <td class="col-formula">{{ m.CalcFormula | default: "N/A" }}</td>
-                        <td>{{ m.Definition | default: "Definition not found" }}</td>
-                      </tr>
-                    {% endfor %}
-                  </table>
-                {% endif %}
-
-                {% for l5 in site.data.capabilities %}
-                  {% assign l5_parent = l5.CapabilityID | split: '.' | pop | join: '.' %}
-                  {% if l5_parent == l4.CapabilityID %}
-                    
-                    <div class="tree-node">
-                      <input type="checkbox" id="toggle-{{ l5.CapabilityID }}" class="toggle-box">
-                      <label for="toggle-{{ l5.CapabilityID }}" class="toggle-label">
-                        {{ l5.CapabilityID }} - {{ l5.CapabilityName }} <span class="badge badge-l5">Level 5</span>
-                      </label>
-                      
-                      <div class="content">
-                        <p><em>{{ l5.Description }}</em></p>
-
-                        {% assign l5_metrics = site.data.benefits | where: "CapabilityID", l5.CapabilityID %}
-                        {% if l5_metrics.size > 0 %}
-                          <table>
-                            <tr>
-                                <th class="col-benefit">Benefit</th>
-                                <th class="col-metric">Metric</th>
-                                <th class="col-formula">Calculation Formula</th>
-                                <th class="col-def">Definition</th>
-                            </tr>
-                            {% for ben in l5_metrics %}
-                              {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
-                              <tr>
-                                <td>{{ ben.BenefitStatement }}</td>
-                                <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
-                                <td class="col-formula">{{ m.CalcFormula | default: "N/A" }}</td>
-                                <td>{{ m.Definition | default: "Definition not found" }}</td>
-                              </tr>
-                            {% endfor %}
-                          </table>
-                        {% endif %}
-
-                        {% for l6 in site.data.capabilities %}
-                          {% assign l6_parent = l6.CapabilityID | split: '.' | pop | join: '.' %}
-                          {% if l6_parent == l5.CapabilityID %}
-                            
-                            <div class="tree-node">
-                              <input type="checkbox" id="toggle-{{ l6.CapabilityID }}" class="toggle-box">
-                              <label for="toggle-{{ l6.CapabilityID }}" class="toggle-label">
-                                {{ l6.CapabilityID }} - {{ l6.CapabilityName }} <span class="badge badge-l6">Level 6</span>
-                              </label>
-                              
-                              <div class="content">
-                                <p><em>{{ l6.Description }}</em></p>
-                                
-                                {% assign l6_metrics = site.data.benefits | where: "CapabilityID", l6.CapabilityID %}
-                                {% if l6_metrics.size > 0 %}
-                                  <table>
-                                    <tr>
-                                        <th class="col-benefit">Benefit</th>
-                                        <th class="col-metric">Metric</th>
-                                        <th class="col-formula">Calculation Formula</th>
-                                        <th class="col-def">Definition</th>
-                                    </tr>
-                                    {% for ben in l6_metrics %}
-                                      {% assign m = site.data.metrics | where: "MetricID", ben.LinkedMetricID | first %}
-                                      <tr>
-                                        <td>{{ ben.BenefitStatement }}</td>
-                                        <td><strong>{{ m.MetricName }}</strong><br><small>{{ ben.LinkedMetricID }}</small></td>
-                                        <td class="col-formula">{{ m.CalcFormula | default: "N/A" }}</td>
-                                        <td>{{ m.Definition | default: "Definition not found" }}</td>
-                                      </tr>
-                                    {% endfor %}
-                                  </table>
-                                {% else %}
-                                  <div class="empty-msg">No direct metrics mapped to this Level 6 capability.</div>
-                                {% endif %}
-                              </div>
-                            </div>
-
-                          {% endif %}
-                        {% endfor %}
-                        </div>
-                    </div>
-
-                  {% endif %}
-                {% endfor %}
-                </div>
+            <div id="emptyState" class="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
+                <svg class="w-16 h-16 mb-4 opacity-20" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>
+                <p class="font-medium">Select a capability to view metrics.</p>
             </div>
 
-          {% endif %}
-        {% endfor %}
-        </div>
-    {% endif %}
-  {% endfor %}
-  </div>
+            <div id="detailView" class="hidden max-w-5xl mx-auto pb-20">
+                
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 p-6 mb-6">
+                    <div class="flex items-start justify-between">
+                        <div>
+                            <span id="detLevel" class="bg-blue-50 text-blue-700 text-xs font-bold px-2 py-1 rounded uppercase tracking-wide">Level X</span>
+                            <h2 id="detName" class="text-2xl font-bold text-slate-900 mt-2 mb-1">Capability Name</h2>
+                            <code id="detId" class="text-sm text-slate-400 font-mono">ID: 8.3.X</code>
+                        </div>
+                    </div>
+                    <p id="detDesc" class="mt-4 text-slate-600 leading-relaxed border-t border-slate-100 pt-4"></p>
+                </div>
+
+                <div id="childSection" class="mb-8 hidden">
+                    <h3 class="text-sm font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
+                        <span>Sub-Capabilities</span>
+                        <span class="bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]" id="childCount">0</span>
+                    </h3>
+                    <div id="childGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 px-6 py-3 border-b border-slate-200 flex justify-between items-center">
+                        <h3 class="font-bold text-slate-700">Performance Metrics</h3>
+                        <div class="text-xs text-slate-500 space-x-3">
+                            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-green-500"></span> Live</span>
+                            <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-yellow-400"></span> Draft</span>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-500 uppercase text-xs">
+                                    <th class="p-4 font-bold border-b border-slate-200 w-1/4">Benefit Statement</th>
+                                    <th class="p-4 font-bold border-b border-slate-200 w-1/5">Metric</th>
+                                    <th class="p-4 font-bold border-b border-slate-200 w-1/3">Formula & Definition</th>
+                                    <th class="p-4 font-bold border-b border-slate-200 w-1/6">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="metricTableBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const store = { tree: [], caps: {}, benefits: [], metrics: {} };
+        
+        async function init() {
+            // 1. Fetch Data
+            const [capsData, benData, metData] = await Promise.all([
+                fetchCsv('data/capabilities.csv'),
+                fetchCsv('data/benefits.csv'),
+                fetchCsv('data/metrics.csv')
+            ]);
+
+            // 2. Index Metrics (Handle * in headers if present)
+            metData.forEach(m => {
+                const id = m.MetricID || m['MetricID*'];
+                if(id) store.metrics[id] = m;
+            });
+
+            // 3. Process Capabilities (Filter duplicates & Sort)
+            const cleanCaps = capsData
+                .filter(c => c.CapabilityID !== '0') // Remove duplicate root
+                .sort((a,b) => a.CapabilityID.localeCompare(b.CapabilityID, undefined, { numeric: true }));
+
+            // 4. Build Tree
+            const rootNodes = [];
+            cleanCaps.forEach(c => {
+                c.children = [];
+                c.benefits = benData.filter(b => b.CapabilityID === c.CapabilityID);
+                store.caps[c.CapabilityID] = c;
+
+                // Parent Logic
+                const parts = c.CapabilityID.split('.');
+                if(parts.length > 1) { // Assuming 8.3 is root base
+                    parts.pop();
+                    const pId = parts.join('.');
+                    if(store.caps[pId]) {
+                        store.caps[pId].children.push(c);
+                    } else {
+                        rootNodes.push(c);
+                    }
+                } else {
+                    rootNodes.push(c);
+                }
+            });
+
+            store.tree = rootNodes;
+            renderTree(store.tree);
+            
+            // Search Listener
+            document.getElementById('searchInput').addEventListener('input', (e) => filterTree(e.target.value));
+        }
+
+        // --- Helpers ---
+        function fetchCsv(path) {
+            return new Promise(resolve => {
+                Papa.parse(path, {
+                    download: true,
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: res => resolve(res.data)
+                });
+            });
+        }
+
+        // --- Rendering ---
+        function renderTree(nodes, container = document.getElementById('treeContainer')) {
+            container.innerHTML = '';
+            nodes.forEach(node => container.appendChild(createNodeEl(node)));
+        }
+
+        function createNodeEl(node) {
+            const el = document.createElement('div');
+            const hasKids = node.children && node.children.length > 0;
+            const benefitCount = node.benefits.length;
+            
+            // Highlight Logic
+            const isActive = false; 
+
+            el.innerHTML = `
+                <div class="tree-node" id="node-${node.CapabilityID}">
+                    <div class="tree-content cursor-pointer p-1.5 rounded flex items-center justify-between group" 
+                         onclick="selectNode('${node.CapabilityID}')">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <span class="toggle-icon text-[10px] text-slate-400 w-4 text-center hover:text-blue-600 transition" 
+                                  onclick="toggleNode(event, '${node.CapabilityID}')">
+                                  ${hasKids ? '▶' : '•'}
+                            </span>
+                            <div class="truncate text-slate-700 group-hover:text-blue-800" title="${node.CapabilityName}">
+                                <span class="font-mono text-[10px] text-slate-400 mr-1">${node.CapabilityID}</span>
+                                ${node.CapabilityName}
+                            </div>
+                        </div>
+                        ${benefitCount > 0 ? `<span class="bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.5 rounded-full">${benefitCount}</span>` : ''}
+                    </div>
+                    <div class="tree-children" id="child-${node.CapabilityID}"></div>
+                </div>
+            `;
+
+            // Render children immediately (hidden via CSS)
+            if(hasKids) {
+                const childContainer = el.querySelector('.tree-children');
+                node.children.forEach(child => childContainer.appendChild(createNodeEl(child)));
+            }
+            return el;
+        }
+
+        function toggleNode(e, id) {
+            e.stopPropagation();
+            const childDiv = document.getElementById(`child-${id}`);
+            const btn = e.target;
+            if(childDiv) {
+                childDiv.classList.toggle('expanded');
+                btn.innerText = childDiv.classList.contains('expanded') ? '▼' : '▶';
+            }
+        }
+
+        function selectNode(id) {
+            // UI Highlight
+            document.querySelectorAll('.tree-node').forEach(n => n.classList.remove('tree-selected'));
+            document.getElementById(`node-${id}`).classList.add('tree-selected');
+
+            const cap = store.caps[id];
+            if(!cap) return;
+
+            // Show Content
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('detailView').classList.remove('hidden');
+
+            // Fill Header
+            document.getElementById('detName').innerText = cap.CapabilityName;
+            document.getElementById('detId').innerText = `ID: ${cap.CapabilityID}`;
+            document.getElementById('detLevel').innerText = cap.Level;
+            document.getElementById('detDesc').innerText = cap.Description || "No description provided.";
+
+            // Fill Sub-Capabilities
+            const childSec = document.getElementById('childSection');
+            const childGrid = document.getElementById('childGrid');
+            childGrid.innerHTML = '';
+            
+            if(cap.children.length > 0) {
+                childSec.classList.remove('hidden');
+                document.getElementById('childCount').innerText = cap.children.length;
+                cap.children.forEach(c => {
+                    const card = document.createElement('div');
+                    card.className = "bg-white border border-slate-200 p-3 rounded hover:border-blue-400 cursor-pointer transition shadow-sm group";
+                    card.onclick = () => { selectNode(c.CapabilityID); document.getElementById(`node-${c.CapabilityID}`).scrollIntoView(); };
+                    card.innerHTML = `
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs font-mono text-slate-400">${c.CapabilityID}</span>
+                            <span class="text-[10px] bg-slate-100 px-1.5 rounded text-slate-600">${c.benefits.length} Metrics</span>
+                        </div>
+                        <div class="font-bold text-sm text-slate-700 group-hover:text-blue-700 truncate">${c.CapabilityName}</div>
+                    `;
+                    childGrid.appendChild(card);
+                });
+            } else {
+                childSec.classList.add('hidden');
+            }
+
+            // Fill Metrics
+            const tbody = document.getElementById('metricTableBody');
+            tbody.innerHTML = '';
+
+            if(cap.benefits.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-8 text-center text-slate-400 italic">
+                    No direct metrics mapped to this level.<br>
+                    <span class="text-xs">Check sub-capabilities or parent levels.</span>
+                </td></tr>`;
+            } else {
+                cap.benefits.forEach(b => {
+                    const m = store.metrics[b.LinkedMetricID] || {};
+                    const mName = m.MetricName || m['MetricName*'] || "Unknown";
+                    const def = m.Definition || "-";
+                    const formula = m.CalcFormula || "-";
+                    
+                    // Logic: Is it a Draft metric? (Contains 'Count(' or is empty)
+                    const isDraft = formula.includes("Count(") || formula === "-" || formula.includes("Total rate");
+                    const statusBadge = isDraft 
+                        ? `<span class="tag-draft text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">Draft</span>`
+                        : `<span class="tag-live text-[10px] font-bold px-2 py-0.5 rounded-full inline-flex items-center gap-1">Live</span>`;
+
+                    tbody.innerHTML += `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="p-4 text-slate-700 align-top">${b.BenefitStatement}</td>
+                            <td class="p-4 align-top">
+                                <div class="font-bold text-slate-800 text-sm mb-1">${mName}</div>
+                                <div class="font-mono text-xs text-blue-600 bg-blue-50 inline-block px-1 rounded border border-blue-100">${b.LinkedMetricID}</div>
+                            </td>
+                            <td class="p-4 align-top">
+                                <div class="mb-2">
+                                    <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Formula:</span>
+                                    <div class="font-mono text-xs bg-slate-100 p-1.5 rounded text-slate-600 border border-slate-200 mt-1 break-words">${formula}</div>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] uppercase text-slate-400 font-bold tracking-wider">Definition:</span>
+                                    <div class="text-xs text-slate-600 mt-0.5 leading-relaxed">${def}</div>
+                                </div>
+                            </td>
+                            <td class="p-4 align-top">${statusBadge}</td>
+                        </tr>
+                    `;
+                });
+            }
+        }
+
+        // --- Search Logic ---
+        function filterTree(term) {
+            const lower = term.toLowerCase();
+            const nodes = document.querySelectorAll('.tree-node');
+            
+            nodes.forEach(node => {
+                // Determine if this node or any child matches
+                const content = node.innerText.toLowerCase();
+                if(content.includes(lower)) {
+                    node.style.display = 'block';
+                    // Auto expand if filter is active
+                    if(term.length > 0) {
+                        const childDiv = node.querySelector('.tree-children');
+                        if(childDiv) childDiv.classList.add('expanded');
+                        const toggle = node.querySelector('.toggle-icon');
+                        if(toggle) toggle.innerText = '▼';
+                    }
+                } else {
+                    node.style.display = 'none';
+                }
+            });
+        }
+
+        // --- Export ---
+        function exportToCSV() {
+            const name = document.getElementById('detName').innerText;
+            const rows = document.querySelectorAll('#metricTableBody tr');
+            if(!rows.length || rows[0].innerText.includes("No direct metrics")) return alert("No metrics to export.");
+
+            let csv = [`"Benefit","Metric","ID","Formula","Status"`];
+            rows.forEach(r => {
+                const cols = r.querySelectorAll('td');
+                const ben = cols[0].innerText.replace(/"/g, '""');
+                const met = cols[1].querySelector('.font-bold').innerText.replace(/"/g, '""');
+                const id = cols[1].querySelector('.font-mono').innerText;
+                const form = cols[2].querySelector('.font-mono').innerText.replace(/"/g, '""');
+                const status = cols[3].innerText;
+                csv.push(`"${ben}","${met}","${id}","${form}","${status}"`);
+            });
+
+            const blob = new Blob([csv.join('\n')], {type:'text/csv'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Metrics_${name}.csv`;
+            a.click();
+        }
+
+        init();
+    </script>
+</body>
+</html>
