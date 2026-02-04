@@ -2,159 +2,254 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>HR Catalogue - Diagnostic Mode</title>
+    <title>HR Catalogue - Diagnostic Mode (Region Safe)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>body { font-family: sans-serif; background: #f4f6f8; padding: 20px; }</style>
 </head>
 <body>
 
-    <div id="debugConsole" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow-lg">
-        <p class="font-bold">⚠️ System Check Failed:</p>
-        <ul id="errorList" class="list-disc ml-5 mt-2 text-sm font-mono"></ul>
+    <div id="debugConsole" class="hidden bg-yellow-50 border-l-4 border-yellow-500 text-yellow-800 p-4 mb-6 rounded shadow-lg text-sm font-mono">
+        <p class="font-bold">🔍 Diagnostic Log:</p>
+        <ul id="debugLog" class="list-disc ml-5 mt-2"></ul>
+    </div>
+
+    <div id="errorBox" class="hidden bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded shadow-lg">
+        <p class="font-bold">🛑 Critical Error:</p>
+        <p id="errorMsg" class="mt-2"></p>
     </div>
 
     <div id="appView" class="hidden flex h-[90vh] border border-gray-300 bg-white shadow-xl rounded-lg overflow-hidden">
-        <aside class="w-80 border-r bg-gray-50 flex flex-col">
-            <div class="p-3 border-b font-bold text-gray-600">Capabilities</div>
+        <aside class="w-96 border-r bg-gray-50 flex flex-col">
+            <div class="p-4 border-b font-bold text-gray-700 bg-gray-100">Capabilities Tree</div>
             <div id="treeRoot" class="flex-1 overflow-auto p-2 space-y-1"></div>
         </aside>
         <main class="flex-1 p-8 overflow-auto">
             <h1 id="detTitle" class="text-2xl font-bold mb-4 text-gray-800">Select a Capability</h1>
-            <div id="detContent"></div>
-            <table class="w-full mt-6 text-sm text-left border hidden" id="detTable">
-                <thead class="bg-gray-100 uppercase text-xs">
-                    <tr><th class="p-3 border">Benefit</th><th class="p-3 border">Metric</th><th class="p-3 border">Formula</th></tr>
-                </thead>
-                <tbody id="detTableBody"></tbody>
-            </table>
+            <div id="detContent" class="text-gray-600 mb-6"></div>
+            
+            <div id="detTableContainer" class="hidden">
+                <h3 class="font-bold text-gray-700 mb-2 border-b pb-2">Metrics & Benefits</h3>
+                <table class="w-full text-sm text-left border">
+                    <thead class="bg-gray-100 uppercase text-xs font-bold text-gray-500">
+                        <tr>
+                            <th class="p-3 border-b w-1/3">Benefit Statement</th>
+                            <th class="p-3 border-b w-1/4">Metric</th>
+                            <th class="p-3 border-b w-1/3">Formula / Definition</th>
+                            <th class="p-3 border-b w-1/12">Target</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detTableBody"></tbody>
+                </table>
+            </div>
         </main>
     </div>
 
     <script>
-        // === DIAGNOSTIC LOGIC ===
-        function reportError(msg) {
+        // === UTILS ===
+        function log(msg) {
             document.getElementById('debugConsole').classList.remove('hidden');
             const li = document.createElement('li');
             li.textContent = msg;
-            document.getElementById('errorList').appendChild(li);
+            document.getElementById('debugLog').appendChild(li);
+        }
+        function fatal(msg) {
+            document.getElementById('errorBox').classList.remove('hidden');
+            document.getElementById('errorMsg').textContent = msg;
+            throw new Error(msg); // Stop execution
         }
 
+        // === INITIALIZATION ===
         async function init() {
-            // 1. Check if files exist
+            log("Starting initialization...");
             const files = ['data/capabilities.csv', 'data/benefits.csv', 'data/metrics.csv'];
             const datasets = {};
 
             for (const path of files) {
                 try {
+                    log(`Fetching ${path}...`);
                     const response = await fetch(path);
-                    if (!response.ok) {
-                        reportError(`FILE MISSING: Could not find "${path}". Check spelling and capitalization exactly.`);
-                        return; // Stop if file missing
-                    }
+                    if (!response.ok) fatal(`Failed to load "${path}". Status: ${response.status}`);
+                    
                     const text = await response.text();
                     
-                    // Parse
-                    const result = Papa.parse(text, { header: true, skipEmptyLines: true });
-                    
+                    // PARSE WITH AUTO-DETECT (Fixes the Semicolon issue)
+                    const result = Papa.parse(text, { 
+                        header: true, 
+                        skipEmptyLines: true,
+                        transformHeader: (h) => h.trim().replace(/^\ufeff/, ''), // Clean BOM and spaces
+                        delimiter: "", // Auto-detect delimiter (Comma vs Semicolon)
+                    });
+
                     if (result.errors.length > 0) {
-                        reportError(`CSV ERROR in ${path}: ${result.errors[0].message}`);
+                        log(`Warning parsing ${path}: ${result.errors[0].message}`);
                     }
-                    
-                    // Verify Headers
-                    const headers = result.meta.fields;
+
                     const fileName = path.split('/')[1];
                     datasets[fileName] = result.data;
-
-                    // Header Validation Checks
-                    if (fileName === 'capabilities.csv') {
-                        if (!headers.includes('CapabilityID') && !headers.includes('Capability ID')) 
-                            reportError(`HEADER ERROR: capabilities.csv is missing "CapabilityID" column.`);
-                        if (!headers.includes('CapabilityName') && !headers.includes('Capability Name')) 
-                            reportError(`HEADER ERROR: capabilities.csv is missing "CapabilityName" column.`);
-                    }
                     
-                    if (fileName === 'benefits.csv' && !headers.includes('BenefitStatement')) 
-                        reportError(`HEADER ERROR: benefits.csv is missing "BenefitStatement" column.`);
+                    // Log headers to help debug
+                    log(`${fileName} headers detected: [${result.meta.fields.join(', ')}]`);
 
                 } catch (e) {
-                    reportError(`NETWORK ERROR: ${e.message}`);
-                    return;
+                    fatal(e.message);
                 }
             }
 
-            // If we get here, data is safe. Launch App.
             launchApp(datasets);
         }
 
         // === APP LOGIC ===
         function launchApp(data) {
-            document.getElementById('appView').classList.remove('hidden');
+            log("Launching Application...");
             
             const caps = data['capabilities.csv'];
             const bens = data['benefits.csv'];
             const mets = data['metrics.csv'];
 
-            // Index Metrics
+            // 1. CLEAN & INDEX METRICS
             const metMap = {};
             mets.forEach(m => {
-                // Try variations of ID
-                const id = m.MetricID || m['MetricID*'] || m['Metric ID'];
+                // Fuzzy match ID columns
+                const id = m.MetricID || m['MetricID*'] || m['Metric ID']; 
                 if(id) metMap[id] = m;
             });
 
-            // Build Tree
+            // 2. BUILD TREE
             const treeRoot = document.getElementById('treeRoot');
-            
-            // Sort
-            caps.sort((a,b) => (a.CapabilityID || a['Capability ID']).localeCompare(b.CapabilityID || b['Capability ID'], undefined, {numeric:true}));
+            const capMap = {};
+            const roots = [];
 
+            // Sort capabilities
+            caps.sort((a,b) => (a.CapabilityID || "0").localeCompare((b.CapabilityID || "0"), undefined, {numeric:true}));
+
+            // Map & Connect Parents
             caps.forEach(c => {
-                const id = c.CapabilityID || c['Capability ID'];
-                const name = c.CapabilityName || c['Capability Name'];
-                
-                // Only showing items with IDs for sanity
-                if (!id) return;
+                const id = c.CapabilityID;
+                if(!id || id === '0') return; // Skip invalid or duplicate root
 
-                const div = document.createElement('div');
-                div.className = "cursor-pointer hover:bg-blue-100 p-2 rounded text-sm";
-                div.textContent = `${id} - ${name}`;
-                div.onclick = () => showDetails(c, bens, metMap);
-                treeRoot.appendChild(div);
+                c.children = [];
+                c.benefits = bens.filter(b => b.CapabilityID === id);
+                capMap[id] = c;
+
+                const parts = id.split('.');
+                // Adjust parent logic based on your data depth (e.g. 8.3.1)
+                if(parts.length > 3) {
+                    parts.pop();
+                    const pId = parts.join('.');
+                    if(capMap[pId]) {
+                        capMap[pId].children.push(c);
+                    } else {
+                        roots.push(c);
+                    }
+                } else {
+                    roots.push(c);
+                }
             });
+
+            // Render
+            document.getElementById('appView').classList.remove('hidden');
+            document.getElementById('debugConsole').classList.add('hidden'); // Hide debug if successful
+
+            function renderNode(node, container) {
+                const div = document.createElement('div');
+                div.className = "pl-2";
+                
+                const hasChildren = node.children.length > 0;
+                const hasBens = node.benefits.length > 0;
+                
+                // Row Styling
+                const row = document.createElement('div');
+                row.className = "cursor-pointer p-1.5 hover:bg-blue-50 rounded flex items-center text-sm text-gray-700 transition";
+                row.onclick = (e) => {
+                    e.stopPropagation();
+                    showDetails(node, metMap);
+                    // Toggle children if present
+                    if(hasChildren) {
+                        const childDiv = div.querySelector('.children-container');
+                        if(childDiv) childDiv.classList.toggle('hidden');
+                    }
+                };
+
+                // Icon
+                const icon = document.createElement('span');
+                icon.className = "w-4 text-xs text-gray-400 mr-1";
+                icon.textContent = hasChildren ? '▶' : '•';
+                
+                // Text
+                const text = document.createElement('span');
+                text.className = "truncate flex-1";
+                text.textContent = `${node.CapabilityID} ${node.CapabilityName}`;
+                
+                // Badge
+                if(hasBens) {
+                    const badge = document.createElement('span');
+                    badge.className = "bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 rounded-full ml-2";
+                    badge.textContent = node.benefits.length;
+                    row.appendChild(icon);
+                    row.appendChild(text);
+                    row.appendChild(badge);
+                } else {
+                    row.appendChild(icon);
+                    row.appendChild(text);
+                }
+
+                div.appendChild(row);
+
+                if(hasChildren) {
+                    const childContainer = document.createElement('div');
+                    childContainer.className = "children-container hidden pl-2 border-l border-gray-200 ml-2";
+                    node.children.forEach(child => renderNode(child, childContainer));
+                    div.appendChild(childContainer);
+                }
+
+                container.appendChild(div);
+            }
+
+            roots.forEach(r => renderNode(r, treeRoot));
         }
 
-        function showDetails(cap, allBens, metMap) {
-            const id = cap.CapabilityID || cap['Capability ID'];
-            const name = cap.CapabilityName || cap['Capability Name'];
+        function showDetails(cap, metMap) {
+            document.getElementById('detTitle').textContent = `${cap.CapabilityID} - ${cap.CapabilityName}`;
+            document.getElementById('detContent').textContent = cap.Description || "No description available.";
             
-            document.getElementById('detTitle').textContent = `${id} - ${name}`;
-            document.getElementById('detContent').textContent = cap.Description || "No description.";
+            const tableBody = document.getElementById('detTableBody');
+            const tableContainer = document.getElementById('detTableContainer');
             
-            const tbody = document.getElementById('detTableBody');
-            tbody.innerHTML = '';
-            document.getElementById('detTable').classList.remove('hidden');
-
-            const myBens = allBens.filter(b => b.CapabilityID === id);
-
-            if (myBens.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="3" class="p-3 text-gray-500 italic">No direct metrics found.</td></tr>';
+            tableBody.innerHTML = '';
+            
+            if(cap.benefits.length === 0) {
+                tableContainer.classList.add('hidden');
                 return;
             }
 
-            myBens.forEach(b => {
+            tableContainer.classList.remove('hidden');
+            
+            cap.benefits.forEach(b => {
                 const mID = b.LinkedMetricID;
-                const metric = metMap[mID] || {};
-                const mName = metric.MetricName || metric['MetricName*'] || mID;
-                const mForm = metric.CalcFormula || metric.CalcMethod || "-";
+                const m = metMap[mID] || {};
+                
+                // Handle different column names
+                const mName = m.MetricName || m['MetricName*'] || mID;
+                const mForm = m.CalcFormula || m.CalcMethod || "-";
+                const mDef = m.Definition || "-";
+                const target = b.TargetValue || "-";
 
-                tbody.innerHTML += `
-                    <tr class="border-b">
-                        <td class="p-3">${b.BenefitStatement}</td>
-                        <td class="p-3 font-bold text-blue-700">${mName}</td>
-                        <td class="p-3 font-mono text-xs bg-gray-50">${mForm}</td>
+                const row = `
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-3 align-top">${b.BenefitStatement}</td>
+                        <td class="p-3 align-top">
+                            <div class="font-bold text-gray-800">${mName}</div>
+                            <div class="text-xs text-blue-600 bg-blue-50 inline-block px-1 rounded">${mID}</div>
+                        </td>
+                        <td class="p-3 align-top">
+                            <div class="text-xs font-mono bg-gray-100 p-1 mb-1 rounded break-words">${mForm}</div>
+                            <div class="text-xs text-gray-500">${mDef}</div>
+                        </td>
+                        <td class="p-3 align-top text-xs font-bold">${target}</td>
                     </tr>
                 `;
+                tableBody.innerHTML += row;
             });
         }
 
