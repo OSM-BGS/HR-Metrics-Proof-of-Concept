@@ -27,7 +27,7 @@
         <main class="flex-1 p-8 overflow-auto">
             <h1 id="detTitle" class="text-2xl font-bold mb-4 text-gray-800">Select a Capability</h1>
             <div id="detContent" class="text-gray-600 mb-6"></div>
-            
+
             <div id="detTableContainer" class="hidden">
                 <h3 class="font-bold text-gray-700 mb-2 border-b pb-2">Metrics & Benefits</h3>
                 <table class="w-full text-sm text-left border">
@@ -62,32 +62,38 @@
         // === INITIALIZATION ===
         async function init() {
             log("Starting initialization...");
-            const files = ['HR-Metrics-Proof-of-Concept/data/capabilities.csv', 'HR-Metrics-Proof-of-Concept/data/benefits.csv', 'HR-Metrics-Proof-of-Concept/data/metrics.csv'];
+
+            // OPTION A: Resolve CSV paths relative to the current page (GitHub Pages project-site safe)
+            const BASE = new URL(".", window.location.href); // ends with trailing slash
+            const files = ["data/capabilities.csv", "data/benefits.csv", "data/metrics.csv"]
+                .map(p => new URL(p, BASE).href);
+
             const datasets = {};
 
             for (const path of files) {
                 try {
                     log(`Fetching ${path}...`);
-                    const response = await fetch(path);
+                    const response = await fetch(path); // YES: keep this line
                     if (!response.ok) fatal(`Failed to load "${path}". Status: ${response.status}`);
-                    
+
                     const text = await response.text();
-                    
-                    // PARSE WITH AUTO-DETECT (Fixes the Semicolon issue)
-                    const result = Papa.parse(text, { 
-                        header: true, 
+
+                    // PARSE WITH AUTO-DETECT (Comma vs Semicolon)
+                    const result = Papa.parse(text, {
+                        header: true,
                         skipEmptyLines: true,
                         transformHeader: (h) => h.trim().replace(/^\ufeff/, ''), // Clean BOM and spaces
-                        delimiter: "", // Auto-detect delimiter (Comma vs Semicolon)
+                        delimiter: "", // Auto-detect delimiter
                     });
 
                     if (result.errors.length > 0) {
                         log(`Warning parsing ${path}: ${result.errors[0].message}`);
                     }
 
-                    const fileName = path.split('/')[1];
+                    // IMPORTANT: With full URLs, extract filename safely
+                    const fileName = new URL(path).pathname.split('/').pop(); // e.g., "capabilities.csv"
                     datasets[fileName] = result.data;
-                    
+
                     // Log headers to help debug
                     log(`${fileName} headers detected: [${result.meta.fields.join(', ')}]`);
 
@@ -102,7 +108,7 @@
         // === APP LOGIC ===
         function launchApp(data) {
             log("Launching Application...");
-            
+
             const caps = data['capabilities.csv'];
             const bens = data['benefits.csv'];
             const mets = data['metrics.csv'];
@@ -111,8 +117,8 @@
             const metMap = {};
             mets.forEach(m => {
                 // Fuzzy match ID columns
-                const id = m.MetricID || m['MetricID*'] || m['Metric ID']; 
-                if(id) metMap[id] = m;
+                const id = m.MetricID || m['MetricID*'] || m['Metric ID'];
+                if (id) metMap[id] = m;
             });
 
             // 2. BUILD TREE
@@ -121,12 +127,14 @@
             const roots = [];
 
             // Sort capabilities
-            caps.sort((a,b) => (a.CapabilityID || "0").localeCompare((b.CapabilityID || "0"), undefined, {numeric:true}));
+            caps.sort((a, b) =>
+                (a.CapabilityID || "0").localeCompare((b.CapabilityID || "0"), undefined, { numeric: true })
+            );
 
             // Map & Connect Parents
             caps.forEach(c => {
                 const id = c.CapabilityID;
-                if(!id || id === '0') return; // Skip invalid or duplicate root
+                if (!id || id === '0') return; // Skip invalid or duplicate root
 
                 c.children = [];
                 c.benefits = bens.filter(b => b.CapabilityID === id);
@@ -134,10 +142,10 @@
 
                 const parts = id.split('.');
                 // Adjust parent logic based on your data depth (e.g. 8.3.1)
-                if(parts.length > 3) {
+                if (parts.length > 3) {
                     parts.pop();
                     const pId = parts.join('.');
-                    if(capMap[pId]) {
+                    if (capMap[pId]) {
                         capMap[pId].children.push(c);
                     } else {
                         roots.push(c);
@@ -154,10 +162,10 @@
             function renderNode(node, container) {
                 const div = document.createElement('div');
                 div.className = "pl-2";
-                
+
                 const hasChildren = node.children.length > 0;
                 const hasBens = node.benefits.length > 0;
-                
+
                 // Row Styling
                 const row = document.createElement('div');
                 row.className = "cursor-pointer p-1.5 hover:bg-blue-50 rounded flex items-center text-sm text-gray-700 transition";
@@ -165,9 +173,9 @@
                     e.stopPropagation();
                     showDetails(node, metMap);
                     // Toggle children if present
-                    if(hasChildren) {
+                    if (hasChildren) {
                         const childDiv = div.querySelector('.children-container');
-                        if(childDiv) childDiv.classList.toggle('hidden');
+                        if (childDiv) childDiv.classList.toggle('hidden');
                     }
                 };
 
@@ -175,14 +183,14 @@
                 const icon = document.createElement('span');
                 icon.className = "w-4 text-xs text-gray-400 mr-1";
                 icon.textContent = hasChildren ? '▶' : '•';
-                
+
                 // Text
                 const text = document.createElement('span');
                 text.className = "truncate flex-1";
                 text.textContent = `${node.CapabilityID} ${node.CapabilityName}`;
-                
+
                 // Badge
-                if(hasBens) {
+                if (hasBens) {
                     const badge = document.createElement('span');
                     badge.className = "bg-blue-100 text-blue-800 text-[10px] font-bold px-1.5 rounded-full ml-2";
                     badge.textContent = node.benefits.length;
@@ -196,7 +204,7 @@
 
                 div.appendChild(row);
 
-                if(hasChildren) {
+                if (hasChildren) {
                     const childContainer = document.createElement('div');
                     childContainer.className = "children-container hidden pl-2 border-l border-gray-200 ml-2";
                     node.children.forEach(child => renderNode(child, childContainer));
@@ -212,23 +220,23 @@
         function showDetails(cap, metMap) {
             document.getElementById('detTitle').textContent = `${cap.CapabilityID} - ${cap.CapabilityName}`;
             document.getElementById('detContent').textContent = cap.Description || "No description available.";
-            
+
             const tableBody = document.getElementById('detTableBody');
             const tableContainer = document.getElementById('detTableContainer');
-            
+
             tableBody.innerHTML = '';
-            
-            if(cap.benefits.length === 0) {
+
+            if (cap.benefits.length === 0) {
                 tableContainer.classList.add('hidden');
                 return;
             }
 
             tableContainer.classList.remove('hidden');
-            
+
             cap.benefits.forEach(b => {
                 const mID = b.LinkedMetricID;
                 const m = metMap[mID] || {};
-                
+
                 // Handle different column names
                 const mName = m.MetricName || m['MetricName*'] || mID;
                 const mForm = m.CalcFormula || m.CalcMethod || "-";
